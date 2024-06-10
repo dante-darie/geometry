@@ -1,7 +1,7 @@
 {
   "compilerOptions": {
     "target": "ES5",
-    "module": "CommonJS",
+    "module": "ESNext",
     "outDir": "./dist",
     "rootDir": "./src",
     "strict": true,
@@ -10,6 +10,7 @@
     "strictFunctionTypes": true,
     "declaration": true,
     "baseUrl": "./src",
+    "moduleResolution": "Bundler",
     "paths": {
       "~abstracts": ["abstracts"],
       "~figures": ["figures"],
