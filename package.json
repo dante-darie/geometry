@@ -15,6 +15,9 @@
     "type": "git",
     "url": "https://github.com/dante-darie/geometry.git"
   },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com/@dante-darie"
+  },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^2.1.0",
     "@types/node": "^20.14.2",
