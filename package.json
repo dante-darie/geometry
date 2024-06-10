@@ -1,5 +1,5 @@
 {
-  "name": "geometry",
+  "name": "@dante.darie/geometry",
   "version": "1.0.0",
   "description": "A Node based, visually agnostic implementation of geometric functions, both abstract and finite.",
   "main": "src/index.ts",
@@ -10,7 +10,11 @@
   },
   "keywords": ["geometry", "vector", "2d", "point", "line", "curve"],
   "author": "Dante Darie",
-  "license": "ISC",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/dante-darie/geometry.git"
+  },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^2.1.0",
     "@types/node": "^20.14.2",
