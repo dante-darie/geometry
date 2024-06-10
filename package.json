@@ -1,5 +1,5 @@
 {
-  "name": "@dante-darie/geometry",
+  "name": "geometric-library",
   "version": "1.0.0",
   "description": "A Node based, visually agnostic implementation of geometric functions, both abstract and finite.",
   "main": "src/index.ts",
@@ -13,7 +13,7 @@
   "license": "MIT",
   "repository": {
     "type": "git",
-    "url": "https://github.com/dante-darie/geometry.git"
+    "url": "https://github.com/dante-darie/geometric-library.git"
   },
   "devDependencies": {
     "@stylistic/eslint-plugin": "^2.1.0",
