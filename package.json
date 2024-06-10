@@ -1,5 +1,5 @@
 {
-  "name": "@dante.darie/geometry",
+  "name": "@dante-darie/geometry",
   "version": "1.0.0",
   "description": "A Node based, visually agnostic implementation of geometric functions, both abstract and finite.",
   "main": "src/index.ts",
