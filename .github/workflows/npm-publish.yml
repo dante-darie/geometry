@@ -1,4 +1,4 @@
-name: Publish Geometry
+name: Release
 
 on:
   release:
