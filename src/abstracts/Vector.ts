@@ -29,6 +29,10 @@ export class Vector {
     return this._dy;
   }
 
+  get values() {
+    return [this.dx, this.dy];
+  }
+
   get magnitude(): Decimal {
     return (this._dx.pow(2).add(this._dy.pow(2))).sqrt();
   }

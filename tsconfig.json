@@ -14,6 +14,7 @@
     "paths": {
       "~abstracts": ["abstracts"],
       "~figures": ["figures"],
+      "~utilities": ["utilities"],
       "~types": ["types"]
     },
     "allowSyntheticDefaultImports": true,

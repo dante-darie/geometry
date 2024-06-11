@@ -14,28 +14,22 @@ interface ISize {
   height: Decimal
 }
 
-interface ITranslatable {
-  translate(vector: Vector): void,
-  transpose(vector: Vector): void
-}
-
 interface IPositional {
   translate(vector: Vector): void,
   reflect(about: Point|Line): void,
   rotate(phi: Decimal, about?: Point): void,
-  clone(): unknown
+  clone(): unknown,
+  readonly values: (Point|Vector|Decimal|boolean)[]
 }
 
 interface IDimensional extends IPositional {
   recompute(): void,
-  values: (Point|Vector|Decimal|boolean)[],
   boundingBox: IBoundingBox
 }
 
 export {
   IPositional,
   IDimensional,
-  ITranslatable,
   IBoundingBox,
   ISize
 };

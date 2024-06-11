@@ -21,6 +21,10 @@ export class Point implements IPositional {
     return this._y;
   }
 
+  get values() {
+    return [this.x, this.y];
+  }
+
   public translate(vector: Vector) {
     const { x, y } = this;
 
@@ -58,5 +62,12 @@ export class Point implements IPositional {
     const { _x: x, _y: y } = this;
 
     return new Point({ x, y });
+  }
+
+  public replace(point: Point) {
+    this._x = point.x;
+    this._y = point.y;
+
+    return this;
   }
 }
