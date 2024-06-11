@@ -1,6 +1,6 @@
 {
   "name": "geometric-library",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "A Node based, visually agnostic implementation of geometric functions, both abstract and finite.",
   "main": "dist/index.js",
   "type": "module",
