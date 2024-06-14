@@ -6,7 +6,7 @@
   "type": "module",
   "scripts": {
     "build": "npx tsc && npx tsc-alias",
-    "lint": "npx eslint . --ext .js,.ts"
+    "lint": "npx eslint ./src --ext .js,.ts"
   },
   "keywords": [
     "geometry",

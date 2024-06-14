@@ -1,7 +1,7 @@
-import { Decimal } from 'decimal.js';
 import { Point, Vector } from '.';
 import { Line } from '~figures';
-import { IBoundingBox, IDimensional } from '~types';
+import { IBoundingBox, IComplex } from '~types';
+import { Calculator } from '~utilities';
 
 export abstract class Figure {
   protected points: Point[] = [];
@@ -15,11 +15,11 @@ export abstract class Figure {
       values[1].push(point.y);
 
       return values;
-    }, [[], []] as [Decimal[], Decimal[]]);
-    const xMax = Decimal.max(...xValues);
-    const xMin = Decimal.min(...xValues);
-    const yMax = Decimal.max(...yValues);
-    const yMin = Decimal.min(...yValues);
+    }, [[], []] as [number[], number[]]);
+    const xMax = +Calculator.max(xValues);
+    const xMin = +Calculator.min(xValues);
+    const yMax = +Calculator.max(yValues);
+    const yMin = +Calculator.min(yValues);
 
     return { xMax, xMin, yMax, yMin };
   }
@@ -53,7 +53,7 @@ export abstract class Figure {
     return this;
   }
 
-  public rotate(phi: Decimal, about?: Point): this {
+  public rotate(phi: number, about?: Point): this {
     this.points.forEach((point) => {
       point.rotate(phi, about);
     });
@@ -72,9 +72,26 @@ export abstract class Figure {
     return this;
   }
 
+  public scale(factor: number, about: Point = new Point({ x: 0, y: 0 }), recompute: boolean = true): this {
+
+    this.points.forEach((point) => {
+      const positionalVector = new Vector([about, point]);
+      const scaledPositionalVector = positionalVector.clone().scale(factor);
+      const scaledPoint = about.clone().translate(scaledPositionalVector);
+
+      point.replace(scaledPoint);
+    });
+
+    this.vectors.forEach((vector) => vector.scale(factor));
+
+    recompute && this._recompute();
+
+    return this;
+  }
+
   private _recompute() {
     if ('recompute' in this) {
-      (this as unknown as IDimensional).recompute();
+      (this as unknown as IComplex).recompute();
     }
   }
 }

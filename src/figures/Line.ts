@@ -1,21 +1,17 @@
-import { Decimal } from 'decimal.js';
 import { Figure, Point, Vector } from '~abstracts';
-import { IDimensional } from '~types';
+import { IComplex, IDimensional, TLineValues } from '~types';
+import { Calculator } from '~utilities';
 
-type TRelativeValues = [Point, Vector];
-type TAbsoluteValues = [Point, Point];
-type TValues = TAbsoluteValues|TRelativeValues;
-
-export class Line extends Figure implements IDimensional {
+export class Line extends Figure implements IDimensional, IComplex {
   private _P0: Point;
-  private _P1: Point; // Not necessary for point calculations but it is useful when using Line as a segment.
+  private _P1: Point;
   private _V: Vector;
-  private slope: Decimal|undefined;
-  private reciprocal: Decimal|undefined;
-  private yIntercept: Decimal|undefined;
-  private xIntercept: Decimal|undefined;
+  private slope: number|undefined;
+  private reciprocal: number|undefined;
+  private yIntercept: number|undefined;
+  private xIntercept: number|undefined;
 
-  constructor(values: TValues) {
+  constructor(values: TLineValues) {
     super();
 
     const [P0, anchor] = values;
@@ -24,14 +20,14 @@ export class Line extends Figure implements IDimensional {
       this.isRelative = true;
       this._V = anchor;
       this._P1 = new Point({
-        x: P0.x.add(anchor.dx),
-        y: P0.y.add(anchor.dy)
+        x: +Calculator.add(P0.x, anchor.dx),
+        y: +Calculator.add(P0.y, anchor.dy)
       });
     } else { // anchor instanceof Point
       this._P1 = anchor;
       this._V = new Vector({
-        dx: anchor.x.sub(P0.x),
-        dy: anchor.y.sub(P0.y),
+        dx: +Calculator.sub(anchor.x, P0.x),
+        dy: +Calculator.sub(anchor.y, P0.y),
       });
     }
 
@@ -56,7 +52,7 @@ export class Line extends Figure implements IDimensional {
     return this._V;
   }
 
-  get values(): TValues {
+  get values(): TLineValues {
     if (!this.isRelative) {
       return [this.P0, this.P1];
     }
@@ -67,7 +63,7 @@ export class Line extends Figure implements IDimensional {
   get isHorizontal() {
     const { slope, isVertical } = this;
 
-    return !isVertical && slope!.eq(0);
+    return !isVertical && slope === 0;
   }
 
   get isVertical() {
@@ -80,11 +76,11 @@ export class Line extends Figure implements IDimensional {
     const { slope, isVertical, isHorizontal } = this;
 
     if (isHorizontal) {
-      return new Decimal(0);
+      return 1;
     }
 
     if (isVertical) {
-      return new Decimal(1);
+      return 0;
     }
 
     return slope!;
@@ -94,21 +90,21 @@ export class Line extends Figure implements IDimensional {
     const { isVertical, isHorizontal } = this;
 
     if (isHorizontal || isVertical) {
-      return new Decimal(1);
+      return 1;
     }
 
-    return new Decimal(-1);
+    return -1;
   }
 
   get c() {
     const { isVertical, isHorizontal, yIntercept, xIntercept } = this;
 
     if (isHorizontal) {
-      return yIntercept!.neg();
+      return +Calculator.neg(yIntercept!);
     }
 
     if (isVertical) {
-      return xIntercept!.neg();
+      return +Calculator.neg(xIntercept!);
     }
 
     return yIntercept!;
@@ -117,19 +113,19 @@ export class Line extends Figure implements IDimensional {
   public clone() {
     const values = this.values.map((value) => value.clone());
 
-    return new Line(values as TValues);
+    return new Line(values as TLineValues);
   }
 
-  public getPointAtParameter(t: Decimal|number): Point {
+  public getPointAtParameter(t: number): Point {
     const { P0, V } = this;
 
     return new Point({
-      x: P0.x.add(V.dx.mul(t)),
-      y: P0.y.add(V.dy.mul(t))
+      x: +Calculator.add(P0.x, Calculator.mul(V.dx, t)),
+      y: +Calculator.add(P0.y, Calculator.mul(V.dy, t))
     });
   }
 
-  public getYValueAtX(x: Decimal|number): Decimal|undefined {
+  public getYValueAtX(x: number): number|undefined {
     const { slope, yIntercept } = this;
 
     if (typeof slope === 'undefined') {
@@ -137,13 +133,13 @@ export class Line extends Figure implements IDimensional {
     }
 
     if (typeof yIntercept === 'undefined') {
-      return slope.mul(x);
+      return +Calculator.mul(slope, x);
     }
 
-    return slope.mul(x).add(yIntercept);
+    return +Calculator.mul(slope, x).add(yIntercept);
   }
 
-  public getXValueAtY(y: Decimal|number): Decimal|undefined {
+  public getXValueAtY(y: number): number|undefined {
     const { reciprocal, xIntercept } = this;
 
     if (typeof reciprocal === 'undefined') {
@@ -151,15 +147,17 @@ export class Line extends Figure implements IDimensional {
     }
 
     if (typeof xIntercept === 'undefined') {
-      return reciprocal.mul(y);
+      return +Calculator.mul(reciprocal, y);
     }
 
-    return reciprocal.mul(y).add(xIntercept);
+    return +Calculator.mul(reciprocal, y).add(xIntercept);
   }
 
   public getPerpendicularThrough(I: Point): Line {
     if (this.hasPoint(I)) {
-      return this.clone().rotate(new Decimal(Math.PI).div(2), I);
+      const phi = +Calculator.div(Math.PI, 2);
+
+      return this.clone().rotate(phi, I);
     }
 
     return new Line([I, this.getPerpendicularProjection(I)]);
@@ -178,10 +176,10 @@ export class Line extends Figure implements IDimensional {
     } else if (isHorizontal) {
       perpendicularProjection = new Point({ x: I.x, y: P0.y });
     } else {
-      const randomX = new Decimal(1);
+      const randomX = new Calculator(1);
       perpendicularProjection = new Point({
-        x: randomX,
-        y: randomX.mul(1).div(slope!).neg().add(I.x.div(slope!)).add(I.y)
+        x: +randomX,
+        y: +randomX.mul(1).div(slope!).neg().add(Calculator.div(I.x, slope!)).add(I.y)
       });
     }
 
@@ -193,9 +191,9 @@ export class Line extends Figure implements IDimensional {
       return;
     }
 
-    const denominator = this.a.mul(line.b).sub(line.a.mul(this.b));
-    const x = this.b.mul(line.c).sub(line.b.mul(this.c)).div(denominator);
-    const y = this.c.mul(line.a).sub(line.c.mul(this.a)).div(denominator);
+    const denominator = Calculator.mul(this.a, line.b).sub(Calculator.mul(line.a, this.b));
+    const x = +Calculator.mul(this.b, line.c).sub(Calculator.mul(line.b, this.c)).div(denominator);
+    const y = +Calculator.mul(this.c, line.a).sub(Calculator.mul(line.c, this.a)).div(denominator);
 
     return new Point({ x, y });
   }
@@ -207,19 +205,19 @@ export class Line extends Figure implements IDimensional {
     this.xIntercept = this.computeXIntercept();
   }
 
-  public angleTo(line: Line): Decimal {
+  public angleTo(line: Line): number {
     if (this.isParallelTo(line)) {
-      return new Decimal(0);
+      return 0;
     }
 
     if (this.isPerpendicularTo(line)) {
-      return new Decimal(Math.PI).div(2);
+      return +Calculator.div(Math.PI, 2);
     }
 
-    const thisSlope = this.slope!;
-    const lineSlope = line.slope!;
+    const thisSlope = new Calculator(this.slope!);
+    const lineSlope = new Calculator(line.slope!);
 
-    return lineSlope.sub(thisSlope).div(thisSlope.mul(lineSlope).add(1)).abs().atan();
+    return +lineSlope.sub(thisSlope).div(thisSlope.mul(lineSlope).add(1)).abs().atan();
   }
 
   public isParallelTo(line: Line): boolean {
@@ -243,28 +241,28 @@ export class Line extends Figure implements IDimensional {
       return this.isVertical;
     }
 
-    const thisSlope = this.slope!;
-    const lineSlope = line.slope!;
+    const thisSlope = new Calculator(this.slope!);
+    const lineSlope = new Calculator(line.slope!);
 
-    return thisSlope.eq(new Decimal(-1).div(lineSlope));
+    return +thisSlope === +Calculator.div(-1, lineSlope);
   }
 
   public hasPoint(P: Point): boolean {
     const potentialY = this.getYValueAtX(P.x);
 
-    return !!potentialY?.eq(P.y);
+    return typeof potentialY === 'number' && potentialY === P.y;
   }
 
-  private computeSlope(): Decimal|undefined {
+  private computeSlope(): number|undefined {
     const { P0, P1 } = this;
-    const slope = P1.y.sub(P0.y).div(P1.x.sub(P0.x));
+    const slope = Calculator.sub(P1.y, P0.y).div(Calculator.sub(P1.x, P0.x));
 
     if (slope.isFinite()) {
-      return slope;
+      return +slope;
     }
   }
 
-  private computeYIntercept(): Decimal|undefined {
+  private computeYIntercept(): number|undefined {
     const { P0, slope, isVertical, isHorizontal } = this;
 
     if (isVertical) {
@@ -275,19 +273,19 @@ export class Line extends Figure implements IDimensional {
       return P0.y;
     }
 
-    return P0.y.sub(slope!.mul(P0.x));
+    return +Calculator.sub(P0.y, Calculator.mul(slope!, P0.x));
   }
 
-  private computeReciprocal(): Decimal|undefined {
+  private computeReciprocal(): number|undefined {
     const { P0, P1 } = this;
-    const reciprocal = P1.x.sub(P0.x).div(P1.y.sub(P0.y));
+    const reciprocal = Calculator.sub(P1.x, P0.x).div(Calculator.sub(P1.y, P0.y));
 
     if (reciprocal.isFinite()) {
-      return reciprocal;
+      return +reciprocal;
     }
   }
 
-  private computeXIntercept(): Decimal|undefined {
+  private computeXIntercept(): number|undefined {
     const { P0, reciprocal, isHorizontal, isVertical } = this;
 
     if (isVertical) {
@@ -298,6 +296,6 @@ export class Line extends Figure implements IDimensional {
       return;
     }
 
-    return P0.x.sub(reciprocal!.mul(P0.y));
+    return +Calculator.sub(P0.x, Calculator.mul(reciprocal!, P0.y));
   }
 }

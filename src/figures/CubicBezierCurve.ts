@@ -1,14 +1,8 @@
-import { Decimal } from 'decimal.js';
 import { Figure, Point, Vector } from '~abstracts';
-import { IDimensional } from '~types';
+import { IComplex, IDimensional, TAxii, TAxis, TCubicValues } from '~types';
+import { Calculator } from '~utilities';
 
-type TAxis = 'x'|'y';
-type TAxii = ['x', 'y'];
-type TAbsoluteValues = [Point, Point, Point, Point];
-type TRelativeValues = [Point, Vector, Vector, Vector];
-type TValues = TAbsoluteValues|TRelativeValues;
-
-export class CubicBezierCurve extends Figure implements IDimensional {
+export class CubicBezierCurve extends Figure implements IDimensional, IComplex {
   private _P0: Point;
   private _P1: Point;
   private _P2: Point;
@@ -18,7 +12,7 @@ export class CubicBezierCurve extends Figure implements IDimensional {
   private _V3: Vector;
   private _criticalPoints: Point[]|undefined;
 
-  constructor(values: TValues) {
+  constructor(values: TCubicValues) {
     super();
 
     const [firstControl, secondControl, thirdControl, fourthControl] = values;
@@ -71,7 +65,7 @@ export class CubicBezierCurve extends Figure implements IDimensional {
     return this._criticalPoints;
   }
 
-  get values(): TValues {
+  get values(): TCubicValues {
     const { P0, P1, P2, P3, V1, V2, V3 } = this;
 
     if (!this.isRelative) {
@@ -84,7 +78,7 @@ export class CubicBezierCurve extends Figure implements IDimensional {
   public clone() {
     const values = this.values.map((value) => value.clone());
 
-    return new CubicBezierCurve(values as TValues);
+    return new CubicBezierCurve(values as TCubicValues);
   }
 
   public recompute() {
@@ -113,24 +107,27 @@ export class CubicBezierCurve extends Figure implements IDimensional {
     return criticalPoints;
   }
 
-  private computeCriticalPointsTValues(): Decimal[]|undefined {
+  private computeCriticalPointsTValues(): Calculator[]|undefined {
     const axii: TAxii = ['x', 'y'];
     const { _P0, _P1, _P2, _P3 } = this;
-    const signs = [new Decimal(1), new Decimal(-1)];
+    const signs = [1, -1];
 
     const tValues = [];
     for (let i = 0; i < axii.length; i++) {
       const axis = axii[i];
-      const p0 = _P0[axis], p1 = _P1[axis], p2 = _P2[axis], p3 = _P3[axis];
+      const p0 = new Calculator(_P0[axis]);
+      const p1 = new Calculator(_P1[axis]);
+      const p2 = new Calculator(_P2[axis]);
+      const p3 = new Calculator(_P3[axis]);
       const a = (p3.sub(p2.mul(3)).add(p1.mul(3)).sub(p0)).mul(3);
       const b = (p2.sub(p1.mul(2)).add(p0)).mul(6);
       const c = (p1.sub(p0)).mul(3);
 
       for (let n = 0; n < signs.length; n++) {
         const sign = signs[n];
-        const tValue = a.eq(0)
+        const tValue = +a === 0
           ? c.neg().div(b) //1st degree equation to avoid n/0
-          : (b.neg().add(sign.mul((b.pow(2).sub(a.mul(c).mul(4))).sqrt()))).div(a.mul(2)); //2nd degree equation
+          : (b.neg().add(Calculator.mul(sign, (b.pow(2).sub(a.mul(c).mul(4))).sqrt()))).div(a.mul(2)); //2nd degree equation
 
         if (this.isValidParameter(tValue)) {
           tValues.push(tValue);
@@ -142,10 +139,10 @@ export class CubicBezierCurve extends Figure implements IDimensional {
       return;
     }
 
-    return tValues.filter((value, index, array) => index === array.findIndex((v) => value.eq(v)));
+    return tValues.filter((value, index, array) => index === array.findIndex((v) => +value === +v));
   }
 
-  private getPointAtParameter(t: Decimal): Point|undefined {
+  private getPointAtParameter(t: Calculator): Point|undefined {
     const x = this.getCoordinateAtParameter(t, 'x');
     const y = this.getCoordinateAtParameter(t, 'y');
 
@@ -153,17 +150,17 @@ export class CubicBezierCurve extends Figure implements IDimensional {
       return;
     }
 
-    return new Point({ x, y });
+    return new Point({ x: +x, y: +y });
   }
 
-  private getCoordinateAtParameter(t: Decimal, axis: TAxis): Decimal|undefined {
+  private getCoordinateAtParameter(t: Calculator, axis: TAxis): Calculator|undefined {
     const { _P0, _P1, _P2, _P3 } = this;
     const p0 = _P0[axis],  p1 = _P1[axis], p2 = _P2[axis], p3 = _P3[axis];
 
     // parametric cubic bezier equation
-    const coordinate = Decimal.sub(1, t).pow(3).mul(p0)
-      .add(Decimal.sub(1, t).pow(2).mul(3).mul(t).mul(p1))
-      .add(Decimal.sub(1, t).mul(3).mul(t.pow(2)).mul(p2))
+    const coordinate = Calculator.sub(1, t).pow(3).mul(p0)
+      .add(Calculator.sub(1, t).pow(2).mul(3).mul(t).mul(p1))
+      .add(Calculator.sub(1, t).mul(3).mul(t.pow(2)).mul(p2))
       .add(t.pow(3).mul(p3));
 
     if (!coordinate.isFinite()) {
@@ -173,7 +170,7 @@ export class CubicBezierCurve extends Figure implements IDimensional {
     return coordinate;
   }
 
-  private isValidParameter(t: Decimal) {
-    return t.isFinite() && t.greaterThanOrEqualTo(0) && t.lessThanOrEqualTo(1);
+  private isValidParameter(t: Calculator) {
+    return t.isFinite() && +t >= 0 && +t <= 1;
   }
 }

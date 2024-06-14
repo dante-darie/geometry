@@ -1,17 +1,12 @@
-import { Decimal } from 'decimal.js';
 import { Vector, Point, Figure } from '~abstracts';
 import { Line } from '~figures';
-import { IDimensional } from '~types';
+import { IComplex, IDimensional, TArcValues, TRange } from '~types';
+import { Calculator } from '~utilities';
 
-type TThetaRange = [Decimal, Decimal];
-type TAbsoluteValues = [Point, Decimal, Decimal, Decimal, boolean, boolean, Point];
-type TRelativeValues = [Point, Decimal, Decimal, Decimal, boolean, boolean, Vector];
-type TValues = TAbsoluteValues|TRelativeValues;
-
-export class ArcCurve extends Figure implements IDimensional {
-  private rx: Decimal;
-  private ry: Decimal;
-  private phi: Decimal;
+export class ArcCurve extends Figure implements IDimensional, IComplex {
+  private rx: number;
+  private ry: number;
+  private phi: number;
   private largeArcFlag: boolean;
   private sweepFlag: boolean;
   private _P0: Point;
@@ -20,10 +15,10 @@ export class ArcCurve extends Figure implements IDimensional {
   private P0_prime: Point;
   private center_prime: Point;
   private center: Point;
-  private thetaRange: TThetaRange;
+  private thetaRange: TRange;
   private _criticalPoints: Point[];
 
-  constructor(values: TValues) {
+  constructor(values: TArcValues) {
     super();
 
     const [firstControl, rx, ry, xAxisRotation, largeArcFlag, sweepFlag, secondControl] = values;
@@ -35,7 +30,7 @@ export class ArcCurve extends Figure implements IDimensional {
     this._V1 = secondControlIsVector ? secondControl : new Vector([firstControl, secondControl]);
     this.rx = rx;
     this.ry = ry;
-    this.phi = xAxisRotation.mul(Math.PI).div(180);
+    this.phi = +Calculator.mul(xAxisRotation, Math.PI).div(180);
     this.largeArcFlag = largeArcFlag;
     this.sweepFlag = sweepFlag;
     this.P0_prime = this.computeP0Prime();
@@ -68,10 +63,10 @@ export class ArcCurve extends Figure implements IDimensional {
   }
 
   get xAxisRotation() {
-    return this.phi.mul(180).div(Math.PI);
+    return +Calculator.mul(this.phi, 180).div(Math.PI);
   }
 
-  get values(): TValues {
+  get values(): TArcValues {
     const { P0, P1, V1, rx, ry, xAxisRotation, largeArcFlag, sweepFlag } = this;
 
     if (!this.isRelative) {
@@ -81,7 +76,7 @@ export class ArcCurve extends Figure implements IDimensional {
     return [P0, rx, ry, xAxisRotation, largeArcFlag, sweepFlag, V1];
   }
 
-  public rotate(alpha: Decimal, about?: Point): this {
+  public rotate(alpha: number, about?: Point): this {
     super.rotate(alpha, about);
 
     const xAxis = new Line([this.center, new Vector({ dx: this.rx, dy: 0 })]);
@@ -93,7 +88,6 @@ export class ArcCurve extends Figure implements IDimensional {
     const rotatedXAxis = new Line([rotatedCenter, rotatedCenterXProjection]);
 
     this.phi = xAxis.angleTo(rotatedXAxis);
-    // this.sweepFlag = ??;
 
     return this;
   }
@@ -104,7 +98,7 @@ export class ArcCurve extends Figure implements IDimensional {
     this.sweepFlag = !this.sweepFlag;
 
     if (about instanceof Line) {
-      this.phi = this.phi.neg();
+      this.phi = +new Calculator(this.phi).neg();
     }
 
     return this;
@@ -119,10 +113,25 @@ export class ArcCurve extends Figure implements IDimensional {
       return value;
     });
 
-    return new ArcCurve(values as TValues);
+    return new ArcCurve(values as TArcValues);
+  }
+
+  public scale(factor: number, about: Point = new Point({ x: 0, y: 0 })): this {
+    super.scale(factor, about, false);
+
+    this.rx = +Calculator.mul(this.rx, factor);
+    this.ry = +Calculator.mul(this.ry, factor);
+
+    this.recompute(); // Needs optimization.
+
+    return this;
   }
 
   public recompute() {
+    this.P0_prime = this.computeP0Prime();
+    this.adjustRadii();
+    this.center_prime = this.computeCenterPrime();
+    this.center = this.computeCenter();
     this.thetaRange = this.computeThetaRange();
     this._criticalPoints = this.computeCriticalPoints();
   }
@@ -131,50 +140,56 @@ export class ArcCurve extends Figure implements IDimensional {
     const { phi, P0, P1 } = this;
     const { x: x1, y: y1 } = P0;
     const { x: x2, y: y2 } = P1;
-    const sinPhi = phi.sin();
-    const cosPhi = phi.cos();
-    const mx = x1.sub(x2).div(2);
-    const my = y1.sub(y2).div(2);
+    const sinPhi = Calculator.sin(phi);
+    const cosPhi = Calculator.cos(phi);
+    const mx = Calculator.sub(x1, x2).div(2);
+    const my = Calculator.sub(y1, y2).div(2);
     const x1_prime = cosPhi.mul(mx).add(sinPhi.mul(my));
     const y1_prime = sinPhi.neg().mul(mx).add(cosPhi.mul(my));
 
-    return new Point({ x: x1_prime, y: y1_prime });
+    return new Point({
+      x: +x1_prime,
+      y: +y1_prime
+    });
   }
 
   private adjustRadii(): void {
     const { rx, ry, P0_prime } = this;
     const { x: x1_prime, y: y1_prime } = P0_prime;
-    const rx_sq = rx.pow(2);
-    const ry_sq = ry.pow(2);
-    const x1_prime_sq = x1_prime.pow(2);
-    const y1_prime_sq = y1_prime.pow(2);
+    const rx_sq = Calculator.pow(rx, 2);
+    const ry_sq = Calculator.pow(ry, 2);
+    const x1_prime_sq = Calculator.pow(x1_prime, 2);
+    const y1_prime_sq = Calculator.pow(y1_prime, 2);
 
     const radii_check = x1_prime_sq.div(rx_sq).add((y1_prime_sq.div(ry_sq)));
 
-    if (radii_check.gt(1)) {
-      this.rx = rx.mul(radii_check.sqrt());
-      this.ry = ry.mul(radii_check.sqrt());
+    if (+radii_check > 1) {
+      this.rx = +Calculator.mul(rx, radii_check.sqrt());
+      this.ry = +Calculator.mul(ry, radii_check.sqrt());
     }
   }
 
   private computeCenterPrime(): Point {
     const { largeArcFlag, sweepFlag, rx, ry, P0_prime } = this;
     const { x: x1_prime, y: y1_prime } = P0_prime;
-    const rx_sq = rx.pow(2);
-    const ry_sq = ry.pow(2);
-    const x1_prime_sq = x1_prime.pow(2);
-    const y1_prime_sq = y1_prime.pow(2);
+    const rx_sq = Calculator.pow(rx, 2);
+    const ry_sq = Calculator.pow(ry, 2);
+    const x1_prime_sq = Calculator.pow(x1_prime, 2);
+    const y1_prime_sq = Calculator.pow(y1_prime, 2);
 
-    const sign = new Decimal(largeArcFlag === sweepFlag ? -1 : 1);
+    const sign = new Calculator(largeArcFlag === sweepFlag ? -1 : 1);
     let sq = ((rx_sq.mul(ry_sq)).sub(rx_sq.mul(y1_prime_sq)).sub(ry_sq.mul(x1_prime_sq))).div((rx_sq.mul(y1_prime_sq)).add(ry_sq.mul(x1_prime_sq)));
 
-    sq = sq.lt(0) ? new Decimal(0) : sq;
+    sq = +sq < 0 ? new Calculator(0) : sq;
 
     const coef = sign.mul(sq.sqrt());
-    const cx_prime = coef.mul(rx.mul(y1_prime).div(ry));
-    const cy_prime = coef.mul((ry.mul(x1_prime).div(rx)).neg());
+    const cx_prime = coef.mul(Calculator.mul(rx, y1_prime).div(ry));
+    const cy_prime = coef.mul((Calculator.mul(ry, x1_prime).div(rx)).neg());
 
-    return new Point({ x: cx_prime, y: cy_prime });
+    return new Point({
+      x: +cx_prime,
+      y: +cy_prime
+    });
   }
 
   private computeCenter(): Point {
@@ -182,14 +197,17 @@ export class ArcCurve extends Figure implements IDimensional {
     const { x: x1, y: y1 } = P0;
     const { x: x2, y: y2 } = P1;
     const { x: cx_prime, y: cy_prime } = center_prime;
-    const sinPhi = phi.sin();
-    const cosPhi = phi.cos();
-    const dx = (x1.add(x2)).div(2);
-    const dy = (y1.add(y2)).div(2);
+    const sinPhi = new Calculator(phi).sin();
+    const cosPhi = new Calculator(phi).cos();
+    const dx = (Calculator.add(x1, x2)).div(2);
+    const dy = (Calculator.add(y1, y2)).div(2);
     const cx = cosPhi.mul(cx_prime).sub(sinPhi.mul(cy_prime)).add(dx);
     const cy = sinPhi.mul(cx_prime).add(cosPhi.mul(cy_prime)).add(dy);
 
-    return new Point({ x: cx, y: cy });
+    return new Point({
+      x: +cx,
+      y: +cy
+    });
   }
 
   private computeCriticalPoints(): Point[] {
@@ -199,64 +217,64 @@ export class ArcCurve extends Figure implements IDimensional {
     return criticalPoints;
   }
 
-  private computeCriticalThetas(): Decimal[] {
+  private computeCriticalThetas(): Calculator[] {
     const { rx, ry, phi } = this;
-    const tanPhi = phi.tan();
-    const cotPhi = Decimal.div(1, tanPhi);
-    const xThetaPrincipal = this.getInRangeTheta((ry.neg().mul(tanPhi).div(rx)).atan());
-    const yThetaPrincipal = this.getInRangeTheta((ry.mul(cotPhi).div(rx)).atan());
+    const tanPhi = Calculator.tan(phi);
+    const cotPhi = Calculator.div(1, tanPhi);
+    const xThetaPrincipal = this.getInRangeTheta((Calculator.neg(ry).mul(tanPhi).div(rx)).atan());
+    const yThetaPrincipal = this.getInRangeTheta((Calculator.mul(ry, cotPhi).div(rx)).atan());
     const xThetaSecondary = this.getInRangeTheta(xThetaPrincipal.add(Math.PI));
     const yThetaSecondary = this.getInRangeTheta(yThetaPrincipal.add(Math.PI));
     const criticalThetas = [xThetaPrincipal, xThetaSecondary, yThetaPrincipal, yThetaSecondary];
     const [minTheta, maxTheta] = this.thetaRange;
-    const inRangeCriticalThetas = criticalThetas.filter((theta) => theta.gte(minTheta) && theta.lte(maxTheta)) as Decimal[];
+    const inRangeCriticalThetas = criticalThetas.filter((theta) => (+theta >= +minTheta && +theta <= +maxTheta)) as Calculator[];
 
     return inRangeCriticalThetas;
   }
 
-  private computeThetaRange(): TThetaRange {
+  private computeThetaRange(): TRange {
     const { P0, P1 } = this;
     const theta1 = this.getThetaForPoint(P0);
     const theta2 = this.getThetaForPoint(P1);
-    const thetaRange = [theta1, theta2].sort() as TThetaRange;
+    const thetaRange = [theta1, theta2].sort() as TRange;
 
     return thetaRange;
   }
 
-  private getThetaForPoint({ x, y }: Point): Decimal {
+  private getThetaForPoint({ x, y }: Point): Calculator {
     const { center, phi, rx, ry } = this;
     const { x: cx, y: cy } = center;
-    const sinPhi = phi.sin();
-    const cosPhi = phi.cos();
-    const dy = y.sub(cy);
-    const dx = x.sub(cx);
+    const sinPhi = Calculator.sin(phi);
+    const cosPhi = Calculator.cos(phi);
+    const dy = Calculator.sub(y, cy);
+    const dx = Calculator.sub(x, cx);
     const sinTheta = dy.mul(cosPhi).sub(dx.mul(sinPhi)).div(ry);
     const cosTheta = dx.mul(cosPhi).add(dy.mul(sinPhi)).div(rx);
-    const theta = Decimal.atan2(sinTheta, cosTheta);
+    const theta = Calculator.atan2(sinTheta, cosTheta);
 
     return this.getInRangeTheta(theta);
   }
 
-  private getPointForTheta(theta: Decimal): Point {
+  private getPointForTheta(theta: Calculator): Point {
     const { rx, ry, phi, center } = this;
-    const cosPhi = phi.cos();
-    const sinPhi = phi.sin();
+    const cosPhi = new Calculator(phi).cos();
+    const sinPhi = new Calculator(phi).sin();
     const cosTheta = theta.cos();
     const sinTheta = theta.sin();
-    const x = rx.mul(cosPhi).mul(cosTheta).sub(ry.mul(sinPhi).mul(sinTheta)).add(center.x);
-    const y = rx.mul(sinPhi).mul(cosTheta).add(ry.mul(cosPhi).mul(sinTheta)).add(center.y);
+    const x = +Calculator.mul(rx, cosPhi).mul(cosTheta).sub(Calculator.mul(ry, sinPhi).mul(sinTheta)).add(center.x);
+    const y = +Calculator.mul(rx, sinPhi).mul(cosTheta).add(Calculator.mul(ry, cosPhi).mul(sinTheta)).add(center.y);
 
-    return new Point({x, y});
+    return new Point({ x, y });
   }
 
-  private getInRangeTheta(theta: Decimal): Decimal {
-    const PI2 = Decimal.mul(2, Math.PI);
+  private getInRangeTheta(theta: Calculator): Calculator {
+    const PI2 = Calculator.mul(2, Math.PI);
 
-    if (theta.lt(0)) {
+    if (+theta < 0) {
       return theta.add(PI2);
     }
 
-    if (theta.gt(PI2)) {
+    if (+theta > +PI2) {
       return theta.mod(PI2);
     }
 

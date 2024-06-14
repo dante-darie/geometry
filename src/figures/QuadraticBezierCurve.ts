@@ -1,14 +1,8 @@
-import { Decimal } from 'decimal.js';
 import { Figure, Point, Vector } from '~abstracts';
-import { IDimensional } from '~types';
+import { IComplex, IDimensional, TAxii, TAxis, TQuadraticValues } from '~types';
+import { Calculator } from '~utilities';
 
-type TAxis = 'x'|'y';
-type TAxii = ['x', 'y'];
-type TAbsoluteValues = [Point, Point, Point];
-type TRelativeValues = [Point, Vector, Vector];
-type TValues = TAbsoluteValues|TRelativeValues;
-
-export class QuadraticBezierCurve extends Figure implements IDimensional {
+export class QuadraticBezierCurve extends Figure implements IDimensional, IComplex {
   private _P0: Point;
   private _P1: Point;
   private _P2: Point;
@@ -16,7 +10,7 @@ export class QuadraticBezierCurve extends Figure implements IDimensional {
   private _V2: Vector;
   private _criticalPoint: Point|undefined;
 
-  constructor(values: TValues) {
+  constructor(values: TQuadraticValues) {
     super();
 
     const [firstControl, secondControl, thirdControl] = values;
@@ -59,7 +53,7 @@ export class QuadraticBezierCurve extends Figure implements IDimensional {
     return this._criticalPoint;
   }
 
-  get values(): TValues {
+  get values(): TQuadraticValues {
     const { P0, P1, P2, V1, V2 } = this;
 
     if (!this.isRelative) {
@@ -72,7 +66,7 @@ export class QuadraticBezierCurve extends Figure implements IDimensional {
   public clone() {
     const values = this.values.map((value) => value.clone());
 
-    return new QuadraticBezierCurve(values as TValues);
+    return new QuadraticBezierCurve(values as TQuadraticValues);
   }
 
   public recompute(): void {
@@ -89,7 +83,7 @@ export class QuadraticBezierCurve extends Figure implements IDimensional {
     return this.getPointAtParameter(t);
   }
 
-  private getCriticalPointTValue(): Decimal|undefined {
+  private getCriticalPointTValue(): Calculator|undefined {
     const axii: TAxii = ['x', 'y'];
     const { _P0, _P1, _P2 } = this;
 
@@ -97,11 +91,11 @@ export class QuadraticBezierCurve extends Figure implements IDimensional {
     for (let i = 0; i < axii.length; i++) {
       const axis = axii[i];
 
-      value = _P0[axis].sub(_P1[axis]).div(
-        _P0[axis].sub(_P1[axis].mul(2)).add(_P2[axis])
+      value = Calculator.sub(_P0[axis], _P1[axis]).div(
+        Calculator.sub(_P0[axis], Calculator.mul(_P1[axis], 2)).add(_P2[axis])
       );
 
-      if (value.greaterThanOrEqualTo(0) && value.lessThanOrEqualTo(1)) {
+      if (+value >= 0 && +value <= 1) {
         break;
       }
     }
@@ -109,7 +103,7 @@ export class QuadraticBezierCurve extends Figure implements IDimensional {
     return value;
   }
 
-  private getPointAtParameter(t: Decimal): Point|undefined {
+  private getPointAtParameter(t: Calculator): Point|undefined {
     const x = this.getCoordinateAtParameter(t, 'x');
     const y = this.getCoordinateAtParameter(t, 'y');
 
@@ -117,20 +111,18 @@ export class QuadraticBezierCurve extends Figure implements IDimensional {
       return;
     }
 
-    return new Point({ x, y });
+    return new Point({ x: +x, y: +y });
   }
 
-  private getCoordinateAtParameter(t: Decimal, axis: TAxis): Decimal|undefined {
+  private getCoordinateAtParameter(t: Calculator, axis: TAxis): Calculator|undefined {
     const { _P0, _P1, _P2 } = this;
 
-    const coordinate = Decimal.sub(1, t).pow(2).mul(_P0[axis])
-      .add(Decimal.sub(1, t).mul(2).mul(t).mul(_P1[axis]))
+    const coordinate = Calculator.sub(1, t).pow(2).mul(_P0[axis])
+      .add(Calculator.sub(1, t).mul(2).mul(t).mul(_P1[axis]))
       .add(t.pow(2).mul(_P2[axis]));
 
-    if (coordinate.isNaN()) {
-      return;
+    if (coordinate.isFinite()) {
+      return coordinate;
     }
-
-    return coordinate;
   }
 }

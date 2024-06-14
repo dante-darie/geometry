@@ -1,24 +1,24 @@
-import { Decimal } from 'decimal.js';
 import { Vector } from '~abstracts';
 import { Line } from '~figures';
 import { IPositional } from '~types';
+import { Calculator } from '~utilities';
 
 
 export class Point implements IPositional {
-  private _x: Decimal;
-  private _y: Decimal;
+  private _x: number;
+  private _y: number;
 
-  constructor({ x, y }: { x: Decimal|number, y: Decimal|number }) {
-    this._x = x instanceof Decimal ? x : new Decimal(x);
-    this._y = y instanceof Decimal ? y : new Decimal(y);
+  constructor({ x, y }: { x: number, y: number }) {
+    this._x = x;
+    this._y = y;
   }
 
   get x() {
-    return this._x;
+    return +this._x;
   }
 
   get y() {
-    return this._y;
+    return +this._y;
   }
 
   get values() {
@@ -28,8 +28,8 @@ export class Point implements IPositional {
   public translate(vector: Vector) {
     const { x, y } = this;
 
-    this._x = x.add(vector.dx);
-    this._y = y.add(vector.dy);
+    this._x = +Calculator.add(x, vector.dx);
+    this._y = +Calculator.add(y, vector.dy);
 
     return this;
   }
@@ -41,25 +41,25 @@ export class Point implements IPositional {
       about = perpendicular.P1.clone();
     }
 
-    const translationVector = new Vector([this, about]).multiply(2);
+    const translationVector = new Vector([this, about]).scale(2);
 
     return this.translate(translationVector);
   }
 
-  public rotate(phi: Decimal, about: Point = new Point({ x: 0, y: 0 })) {
-    const dx = this.x.sub(about.x);
-    const dy = this.y.sub(about.y);
-    const sinPhi = phi.sin();
-    const cosPhi = phi.cos();
+  public rotate(phi: number, about: Point = new Point({ x: 0, y: 0 })) {
+    const dx = Calculator.sub(this.x, about.x);
+    const dy = Calculator.sub(this.y, about.y);
+    const sinPhi = Calculator.sin(phi);
+    const cosPhi = Calculator.cos(phi);
 
-    this._x = dx.mul(cosPhi).sub(dy.mul(sinPhi)).add(about._x);
-    this._y = dy.mul(cosPhi).add(dx.mul(sinPhi)).add(about._y);
+    this._x = +dx.mul(cosPhi).sub(dy.mul(sinPhi)).add(about.x);
+    this._y = +dy.mul(cosPhi).add(dx.mul(sinPhi)).add(about.y);
 
     return this;
   }
 
   public clone() {
-    const { _x: x, _y: y } = this;
+    const { x, y } = this;
 
     return new Point({ x, y });
   }
